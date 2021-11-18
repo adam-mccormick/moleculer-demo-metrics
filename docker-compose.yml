@@ -1,0 +1,90 @@
+version: "3.3"
+
+services:
+
+  api:
+    build:
+      context: .
+    image: moleculer-demo-tracing
+    env_file: docker-compose.env
+    environment:
+      SERVICES: api
+      PORT: 8080
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api-gw.rule=PathPrefix(`/`)"
+      - "traefik.http.services.api-gw.loadbalancer.server.port=8080"
+    networks:
+      - internal
+
+  greeter:
+    build:
+      context: .
+    image: moleculer-demo-tracing
+    env_file: docker-compose.env
+    environment:
+      SERVICES: greeter
+    networks:
+      - internal
+
+  products:
+    build:
+      context: .
+    image: moleculer-demo-tracing
+    env_file: docker-compose.env
+    environment:
+      SERVICES: products
+    depends_on:
+      - mongo
+    networks:
+      - internal
+
+  mongo:
+    image: mongo:4
+    volumes:
+      - data:/data/db
+    networks:
+      - internal
+
+  traefik:
+    image: traefik:v2.1
+    command:
+      - "--api.insecure=true" # Don't do that in production!
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - internal
+      - default
+
+  redis:
+    image: redis:alpine
+    networks:
+      - internal
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus:/etc/prometheus
+    networks:
+      - internal
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config/grafana:/etc/grafana/provisioning
+    networks:
+      - internal
+networks:
+  internal:
+
+volumes:
+  data:
